@@ -1,0 +1,120 @@
+﻿@page "/"
+
+@using System.Globalization
+
+@implements IDisposable
+
+<PageTitle>Home</PageTitle>
+
+<h1>Hello, world!</h1>
+
+<p>
+    <textarea style="height: 40%; width: 100%; background-color: black; color: limegreen;" rows="6" @bind=@_transcript></textarea>
+</p>
+
+<p>
+    <label for="errorMessage">Error:</label>
+    <span id="errorMessage" style="color: red;">@_error</span>
+</p>
+
+<p>
+    <label for="statusLog">Status:</label><br />
+    <textarea id="statusLog" style="height: 200px; width: 200px;" rows="6" @bind=@_statusLog></textarea>
+</p>
+
+<button id="speakButton" @onclick="Speak">Speak</button>
+
+@code {
+    [Inject]
+    public ISpeechRecognitionService SpeechRecognition { get; set; } = default!;
+
+    [Inject]
+    public ISpeechSynthesisService SpeechSynthesis { get; set; } = default!;
+
+    private string _language = string.Empty;
+    private string? _transcript;
+    private IDisposable? _recognitionSubscription;
+    private string? _statusLog;
+    private string? _error;
+
+    protected override void OnInitialized()
+    {
+        _language = CultureInfo.CurrentUICulture.Name;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await SpeechRecognition.InitializeModuleAsync();
+            RecognizeSpeech();
+        }
+    }
+
+    private void RecognizeSpeech()
+    {
+        _recognitionSubscription?.Dispose();
+
+        _recognitionSubscription = SpeechRecognition.RecognizeSpeech(
+            _language,
+            OnRecognized,
+            OnError,
+            OnStarted,
+            OnEnded);
+    }
+
+    private void OnStarted()
+    {
+        SetStatus("Started");
+    }
+
+    private void OnEnded()
+    {
+        SetStatus("Ended");
+
+        _ = InvokeAsync(Speak);
+    }
+
+    private void OnError(SpeechRecognitionErrorEvent errorEvent)
+    {
+        _error = errorEvent.Message;
+        SetStatus("Error");
+    }
+
+    private void OnRecognized(string transcript)
+    {
+        _transcript = transcript.Trim();
+        SetStatus("Recognized");
+
+        //_ = InvokeAsync(Speak);
+    }
+
+    private void Speak()
+    {
+        if (!string.IsNullOrEmpty(_transcript))
+        {
+            var utterance = new SpeechSynthesisUtterance()
+            {
+                Text = _transcript ?? "Oops!",
+                Rate = 1,
+                Volume = 1
+            };
+
+            SpeechSynthesis.Speak(utterance);
+        }
+    }
+
+    private void SetStatus(string status)
+    {
+        _statusLog += $"{status}{Environment.NewLine}";
+        StateHasChanged();
+    }
+
+    void IDisposable.Dispose()
+    {
+        SpeechSynthesis.UnsubscribeFromVoicesChanged();
+        _recognitionSubscription?.Dispose();
+    }
+}
+
+
