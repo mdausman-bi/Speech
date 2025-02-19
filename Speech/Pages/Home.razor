@@ -71,22 +71,21 @@
     private void OnEnded()
     {
         SetStatus("Ended");
-
-        _ = InvokeAsync(Speak);
     }
 
     private void OnError(SpeechRecognitionErrorEvent errorEvent)
     {
-        _error = errorEvent.Message;
+        _error = errorEvent.Error ?? errorEvent.Message ?? "Unknown error";
         SetStatus("Error");
     }
 
     private void OnRecognized(string transcript)
     {
         _transcript = transcript.Trim();
+
         SetStatus("Recognized");
 
-        //_ = InvokeAsync(Speak);
+        _ = InvokeAsync(Speak);
     }
 
     private void Speak()
@@ -95,7 +94,7 @@
         {
             var utterance = new SpeechSynthesisUtterance()
             {
-                Text = _transcript ?? "Oops!",
+                Text = _transcript,
                 Rate = 1,
                 Volume = 1
             };
@@ -116,5 +115,3 @@
         _recognitionSubscription?.Dispose();
     }
 }
-
-
